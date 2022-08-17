@@ -5,6 +5,7 @@ version = "0.1.0"
 authors = ["Martin Trumann <martin.trumann@pm.me>"]
 license = "MIT OR Apache-2.0"
 edition = "2021"
+repository = "https://github.com/martintrumann/bevy_state_macros"
 
 [lib]
 proc-macro = true
