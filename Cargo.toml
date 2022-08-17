@@ -1,5 +1,6 @@
 [package]
 name = "bevy_state_macros"
+description = "Macros to allow bevy systems for states with attributes."
 version = "0.1.0"
 authors = ["Martin Trumann <martin.trumann@pm.me>"]
 license = "MIT OR Apache-2.0"
