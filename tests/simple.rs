@@ -21,6 +21,7 @@ fn simple_app() {
     app.add_state(State::Test).insert_resource(TestRes(0));
 
     add_systems!(app [
+        #[on_exit(State::Test)]
         state_exit::<Cleanup>,
         state_update,
         test_system,
@@ -31,7 +32,6 @@ fn simple_app() {
     assert_eq!(app.world.get_resource(), Some(&TestRes(2)))
 }
 
-#[on_exit(State::Test)]
 fn state_exit<R: Component>(mut c: Commands, q: Query<Entity, With<R>>) {
     c.entity(q.single()).despawn();
 }

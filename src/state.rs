@@ -4,7 +4,7 @@ use syn::{
     Ident, Result, Token,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct State {
     pub name: Ident,
     pub variant: Ident,
