@@ -1,7 +1,7 @@
 [package]
 name = "bevy_state_macros"
 description = "Macros to allow bevy systems for states with attributes."
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Martin Trumann <martin.trumann@pm.me>"]
 license = "MIT OR Apache-2.0"
 edition = "2021"
@@ -13,6 +13,7 @@ proc-macro = true
 [dependencies]
 bevy_app = "0.8"
 bevy_ecs = "0.8"
+bevy_state_stack = "0.1.0"
 proc-macro2 = "1.0.43"
 quote = "1.0.21"
 syn = { version = "1.0.99", features = ["full"] }

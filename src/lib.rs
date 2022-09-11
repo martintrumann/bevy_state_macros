@@ -8,9 +8,9 @@
 mod state;
 
 use proc_macro::TokenStream;
-use proc_macro2::TokenStream as TokenStream2;
 
-use quote::{__private::mk_ident, format_ident, quote, ToTokens};
+use quote::{__private::mk_ident, format_ident, quote};
+use state::State;
 use syn::{bracketed, parenthesized, parse::Parse, parse_macro_input, Ident, Token, Type};
 
 const ON_UPDATE: u8 = 0;
@@ -18,6 +18,8 @@ const ON_ENTER: u8 = 1;
 const ON_EXIT: u8 = 2;
 const ON_PAUSE: u8 = 3;
 const ON_RESUME: u8 = 4;
+
+macro_rules! add_name( () => {"_add_{}"});
 
 struct System {
     attr: Option<(u8, state::State)>,
@@ -83,23 +85,6 @@ impl Parse for System {
     }
 }
 
-impl ToTokens for System {
-    fn to_tokens(&self, tokens: &mut quote::__private::TokenStream) {
-        if let Some((num, ref state)) = self.attr {
-            let extra = (!self.generics.is_empty()).then(|| {
-                let generics = &self.generics;
-                quote!( ::< #(#generics),* > )
-            });
-
-            ss_ins(num, state, extra, &self.name).to_tokens(tokens)
-        } else {
-            let name = format_ident!("add_{}", self.name);
-
-            quote!( #name(&mut sets); ).to_tokens(tokens)
-        }
-    }
-}
-
 struct AddSystems {
     app: Ident,
     systems: Vec<System>,
@@ -128,50 +113,50 @@ impl Parse for AddSystems {
 pub fn add_systems(input: TokenStream) -> TokenStream {
     let AddSystems { app, systems } = parse_macro_input!(input as AddSystems);
 
-    quote!({
-        let mut sets = std::collections::HashMap::new();
+    let systems = systems.iter().map(|s| {
+        if let Some((
+            num,
+            State {
+                name: state_name,
+                variant: state_variant,
+                extra: state_extra,
+            },
+        )) = &s.attr
+        {
+            let func = mk_ident(
+                match *num {
+                    ON_UPDATE => "add_system_on_update",
+                    ON_ENTER => "add_system_on_enter",
+                    ON_EXIT => "add_system_on_exit",
+                    ON_PAUSE => "add_system_on_pause",
+                    ON_RESUME => "add_system_on_resume",
+                    _ => unreachable!(),
+                },
+                None,
+            );
+            let name = &s.name;
+            let extra = (!s.generics.is_empty()).then(|| {
+                let generics = &s.generics;
+                quote!( ::< #(#generics),* > )
+            });
 
-        #( #systems )*
-
-        for (_, v) in sets.into_iter() {
-            #app.add_system_set(v);
+            quote! {
+                <App as bevy_state_stack::AppStateStackExt>::#func(
+                    &mut #app,
+                    #state_name::#state_variant,
+                    #name #state_extra #extra
+                );
+            }
+        } else {
+            let name = format_ident!(add_name!(), s.name);
+            quote!( #name(&mut #app); )
         }
+    });
+
+    quote!({
+        #( #systems )*
     })
     .into()
-}
-
-fn ss_ins(
-    num: u8,
-    state: &state::State,
-    extra: Option<TokenStream2>,
-    name: &Ident,
-) -> TokenStream2 {
-    let func = mk_ident(
-        match num {
-            ON_UPDATE => "on_update",
-            ON_ENTER => "on_enter",
-            ON_EXIT => "on_exit",
-            ON_PAUSE => "on_pause",
-            ON_RESUME => "on_resume",
-            _ => unreachable!(),
-        },
-        None,
-    );
-
-    let state_name = &state.name;
-    let state_variant = &state.variant;
-    let state_extra = &state.extra;
-
-    quote!({
-        let ss = sets
-            .remove(&(#state_name::#state_variant, #num))
-            .unwrap_or_else(|| SystemSet::#func(#state_name::#state_variant));
-
-        sets.insert(
-            (#state_name::#state_variant, #num),
-            ss.with_system(#name #extra #state_extra)
-        );
-    })
 }
 
 fn inner(num: u8, input: TokenStream, annotated_item: TokenStream) -> TokenStream {
@@ -180,14 +165,34 @@ fn inner(num: u8, input: TokenStream, annotated_item: TokenStream) -> TokenStrea
     let system = parse_macro_input!(annotated_item as syn::ItemFn);
 
     let name = &system.sig.ident;
-    let add_name = format_ident!("add_{}", name);
+    let add_name = format_ident!(add_name!(), name);
 
-    let state_name = state.name.clone();
+    let func = mk_ident(
+        match num {
+            ON_UPDATE => "add_system_on_update",
+            ON_ENTER => "add_system_on_enter",
+            ON_EXIT => "add_system_on_exit",
+            ON_PAUSE => "add_system_on_pause",
+            ON_RESUME => "add_system_on_resume",
+            _ => unreachable!(),
+        },
+        None,
+    );
 
-    let inner = ss_ins(num, &state, None, name);
+    let State {
+        name: state_name,
+        variant: state_variant,
+        extra: state_extra,
+    } = &state;
 
     let out = quote!(
-        fn #add_name (sets: &mut std::collections::HashMap<(#state_name, u8), SystemSet>) #inner
+        fn #add_name(app: &mut bevy::prelude::App) {
+            <App as bevy_state_stack::AppStateStackExt>::#func(
+                app,
+                #state_name::#state_variant,
+                #name #state_extra
+            );
+        }
 
         #system
     );

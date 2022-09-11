@@ -3,6 +3,7 @@
 #![allow(unused_mut)]
 use bevy::prelude::*;
 use bevy_state_macros::*;
+use bevy_state_stack::*;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, Copy)]
 enum AppState {
@@ -15,7 +16,7 @@ struct Menu;
 
 fn main() {
     let mut app = App::new();
-    app.add_state(AppState::Menu);
+    app.add_state_stack(AppState::Menu);
 
     add_systems!(app [
         spawn_menu,
